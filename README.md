@@ -256,95 +256,26 @@ python3 -m http.server 8080
 ```
 
 **Nginx Integration:**
-For production deployments, use nginx to serve HLS content:
+For production HLS serving, create `/etc/nginx/sites-available/hls-streaming`:
 
-1. **Install nginx:**
-```bash
-sudo apt install nginx
-```
-
-2. **Create nginx configuration** (`/etc/nginx/sites-available/hls-streaming`):
 ```nginx
 server {
     listen 80;
-    server_name localhost;
-    
-    # HLS streaming location
     location /hls/ {
-        root /path/to/your/icecast/;
         alias /path/to/your/icecast/streams-dir/;
-        
-        # HLS specific headers
         add_header Cache-Control no-cache;
         add_header Access-Control-Allow-Origin *;
-        add_header Access-Control-Allow-Methods GET;
-        
-        # CORS headers for web players
-        add_header Access-Control-Allow-Headers Range;
-        
-        # HLS file types
-        location ~* \.(m3u8)$ {
-            expires -1;
-            add_header Cache-Control no-cache;
-        }
-        
-        location ~* \.(ts)$ {
-            expires 1h;
-            add_header Cache-Control public;
-        }
-    }
-    
-    # Optional: Serve a simple web player
-    location / {
-        root /var/www/html;
-        index index.html;
     }
 }
 ```
 
-3. **Enable the site:**
+Enable and reload:
 ```bash
 sudo ln -s /etc/nginx/sites-available/hls-streaming /etc/nginx/sites-enabled/
-sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-4. **Access HLS streams:**
-```bash
-# Master playlist
-http://localhost/hls/live.m3u8
-
-# Direct quality streams
-http://localhost/hls/aac_lofi/
-http://localhost/hls/flac_hifi/
-http://localhost/hls/flac_hires/
-```
-
-5. **Simple HTML player example** (`/var/www/html/index.html`):
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>HLS Stream Player</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-</head>
-<body>
-    <video id="video" controls width="800" height="600"></video>
-    <script>
-        const video = document.getElementById('video');
-        const videoSrc = '/hls/live.m3u8';
-        
-        if (Hls.isSupported()) {
-            const hls = new Hls();
-            hls.loadSource(videoSrc);
-            hls.attachMedia(video);
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = videoSrc;
-        }
-    </script>
-</body>
-</html>
-```
+Access: `http://localhost/hls/live.m3u8`
 
 **Requirements:**
 - **FFmpeg**: Required for video transcoding
