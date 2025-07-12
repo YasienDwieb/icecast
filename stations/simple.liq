@@ -9,9 +9,17 @@ playlist = mksafe(playlist("playlists/playlist1.pls"))
 #  playlist
 #)
 
-# Output stream to Icecast server
+# Output stream to Icecast server with metadata
 output.icecast(
-  %mp3, host="localhost", port=8000, password="changeme",
-  mount="/stream",
+  %mp3, 
+  host="localhost", 
+  port=8000, 
+  password="changeme",
+  mount="/station1",
+  name="Simple station #1",
+  description="Most simple station",
+  genre="Various",
+  url="http://localhost:8000",
+  public=false,
   playlist
 )
