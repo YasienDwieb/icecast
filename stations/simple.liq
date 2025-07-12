@@ -1,3 +1,6 @@
+# Configure telnet server on different port
+server.telnet(port=1234)
+
 # Load a playlist from the specified .m3u file
 playlist = mksafe(playlist("playlists/playlist1.pls"))
 

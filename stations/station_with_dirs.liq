@@ -2,6 +2,9 @@
 # Simple station mixing files from two directories
 #
 
+# Configure telnet server on different port
+server.telnet(port=1235)
+
 # 1) Create playlist sources from directories:
 artist1_source = playlist.list(list.shuffle(file.ls(absolute=true, "media/artist1")))
 artist2_source = playlist.list(list.shuffle(file.ls(absolute=true, "media/artist2")))
