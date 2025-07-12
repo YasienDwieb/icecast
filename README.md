@@ -99,9 +99,9 @@ curl -I http://localhost:8000
 1. Add audio files to any location
 2. Update `playlists/playlist1.pls` with file paths:
 ```
-/path/to/your/song1.mp3
-/path/to/your/song2.mp3
-/home/user/Music/favorite.mp3
+/path/to/your/file1.mp3
+/path/to/your/file2.mp3
+/home/user/Media/favorite.mp3
 ```
 
 #### For Multi-Directory Station
@@ -113,8 +113,8 @@ mkdir -p media/artist1 media/artist2
 2. Add MP3 files to respective directories:
 ```bash
 # Copy your audio files
-cp /path/to/artist1-songs/*.mp3 media/artist1/
-cp /path/to/artist2-songs/*.mp3 media/artist2/
+cp /path/to/artist1-files/*.mp3 media/artist1/
+cp /path/to/artist2-files/*.mp3 media/artist2/
 ```
 
 3. Supported formats: MP3, FLAC, OGG, WAV, etc.
@@ -395,7 +395,7 @@ Once connected to telnet, you can use these commands:
 # Show help
 help
 
-# Show current song
+# Show current track
 request.metadata
 
 # Show queue
@@ -423,7 +423,7 @@ source.is_ready
 #### Queue Management
 ```bash
 # Add a track to queue (for simple station)
-request.push /path/to/song.mp3
+request.push /path/to/file.mp3
 
 # Remove track from queue
 request.remove <id>
@@ -544,6 +544,191 @@ liquidsoap stations/simple.liq -v > station.log 2>&1
 5. **Check output**: `ls -la streams-dir/`
 6. **Test playback**: `vlc streams-dir/live.m3u8`
 7. **Test telnet control**: `telnet localhost 1235`
+
+## Adding a New Station
+
+### Step-by-Step Guide
+
+To add a new station to your icecast setup, follow these steps:
+
+#### 1. **Create Station Configuration File**
+Create a new `.liq` file in the `stations/` directory:
+
+```bash
+# Example: Create a new station
+touch stations/new_station.liq
+```
+
+#### 2. **Choose Station Type and Template**
+Use existing stations as templates:
+
+- **For playlist-based stations**: Use `stations/simple.liq` as template
+- **For directory-based stations**: Use `stations/station_with_dirs.liq` as template  
+- **For HLS video streaming**: Use `stations/simple_hls.liq` as template
+
+#### 3. **Configure Station Settings**
+Edit your new station file with these key settings:
+
+```liquidsoap
+# REQUIRED: Unique telnet port (avoid conflicts)
+server.telnet(port=1236)  # Change port number
+
+# For Icecast stations:
+output.icecast(
+  %mp3(bitrate = 128),
+  host = "localhost",
+  port = 8000,
+  password = "changeme",
+  mount = "/new_station",    # REQUIRED: Unique mount point
+  name = "New Station",      # Station name
+  description = "24/7 Media Stream",
+  genre = "Various",
+  # ... your audio source
+)
+
+# For HLS stations:
+output.file.hls(
+  playlist = "new_live.m3u8",     # REQUIRED: Unique playlist name
+  "new-streams-dir/",             # REQUIRED: Unique output directory
+  streams,
+  radio
+)
+```
+
+#### 4. **Create Media Sources**
+Choose one of these approaches:
+
+**Option A: Playlist-based**
+```bash
+# Create playlist file
+touch playlists/new_playlist.pls
+
+# Add file paths to playlist
+echo "/path/to/media/file1.mp3" >> playlists/new_playlist.pls
+echo "/path/to/media/file2.mp3" >> playlists/new_playlist.pls
+```
+
+**Option B: Directory-based**
+```bash
+# Create media directories
+mkdir -p media/artist/album1
+mkdir -p media/artist/album2
+
+# Copy media files
+cp /path/to/media/*.mp3 media/artist/album1/
+```
+
+**Option C: HLS Video**
+```bash
+# Create video directory and playlist
+mkdir -p media/artist_videos
+touch playlists/artist_videos.pls
+
+# Add video file paths
+echo "/path/to/video1.mp4" >> playlists/artist_videos.pls
+```
+
+#### 5. **Update Station Configuration**
+Edit your station file to use the media sources:
+
+```liquidsoap
+# For playlist-based
+radio = mksafe(playlist("playlists/new_playlist.pls"))
+
+# For directory-based
+album1 = playlist.list(list.shuffle(file.ls(absolute=true, "media/artist/album1")))
+album2 = playlist.list(list.shuffle(file.ls(absolute=true, "media/artist/album2")))
+radio = rotate(weights=[1, 1], [album1, album2])
+
+# For HLS video
+radio = mksafe(playlist("playlists/artist_videos.pls"))
+```
+
+#### 6. **Required Unique Settings Checklist**
+Ensure these are unique for each station:
+
+- ✅ **Telnet port**: `server.telnet(port=XXXX)` 
+- ✅ **Mount point**: `mount="/unique_name"` (for Icecast)
+- ✅ **Playlist name**: `playlist="unique.m3u8"` (for HLS)
+- ✅ **Output directory**: `"unique-dir/"` (for HLS)
+- ✅ **Media sources**: Separate playlists or directories
+
+#### 7. **Test Your New Station**
+
+```bash
+# Test the configuration
+liquidsoap stations/new_station.liq -t -v
+
+# Run in background
+liquidsoap stations/new_station.liq &
+
+# Check if running
+ps aux | grep liquidsoap
+```
+
+#### 8. **Access Your New Station**
+
+**For Icecast stations:**
+```bash
+# Stream URL
+http://localhost:8000/new_station
+
+# Telnet control
+telnet localhost 1236
+```
+
+**For HLS stations:**
+```bash
+# Check output
+ls -la new-streams-dir/
+
+# Play with VLC
+vlc new-streams-dir/new_live.m3u8
+```
+
+### Port Management
+
+Keep track of used ports to avoid conflicts:
+
+| Station | Telnet Port | Mount Point | Status |
+|---------|-------------|-------------|--------|
+| Simple | 1234 | /station1 | ✅ Used |
+| Multi-dir | 1235 | /albums_mix | ✅ Used |
+| HLS Video | 1235 | N/A (file output) | ✅ Used |
+| New Station (example) | 1236 | /new_station | 🆕 Available |
+
+### File Structure After Adding Station
+
+```
+icecast/
+├── stations/
+│   ├── simple.liq
+│   ├── station_with_dirs.liq
+│   ├── simple_hls.liq
+│   └── new_station.liq          # ← New station
+├── playlists/
+│   ├── playlist1.pls
+│   ├── playlist-videos.pls
+│   └── new_playlist.pls         # ← New playlist
+├── media/
+│   ├── artist1/
+│   ├── artist2/
+│   ├── videos/
+│   └── artist/                  # ← New media directory
+│       ├── album1/
+│       └── album2/
+├── streams-dir/                 # HLS output
+├── new-streams-dir/             # ← New HLS output (if applicable)
+└── README.md
+```
+
+### Common Issues When Adding Stations
+
+1. **Port conflicts**: Use unique telnet ports
+2. **Mount point conflicts**: Use unique mount points for Icecast
+3. **File permissions**: Ensure liquidsoap can read media files
+4. **Path issues**: Use absolute paths in playlists
+5. **Directory creation**: Create output directories for HLS stations
 
 ## Advanced Features
 
